@@ -1,0 +1,11 @@
+_ > nanoagent.plugin.v0001.ProductConfig:
+tagline: "Check whether an API served the model it claims"
+summary: "Pick one of six cases: four known models' outputs on fixed probe prompts at temperature 0, and an API's call log. The agent compares each call with the references and says whether it is genuine, swapped to another known model, from an unknown model, or unverifiable. Every call is checked against the label written when the log was built."
+highlights:
+  - "Exact matching: a near miss from an unknown model is never passed off as the closest one"
+  - "Covers sampled calls, unprobed prompts, shared answers and unlisted model names"
+  - "Runs offline: the cases are built into the plugin"
+steps:
+  - "Ask it to audit a case, 1 to 6"
+  - "The agent reads the references and the log, and compares each call that can be checked"
+  - "The result lists every call's verdict and matching models, with the verifier's verdict"

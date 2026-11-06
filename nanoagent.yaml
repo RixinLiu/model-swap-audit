@@ -1,0 +1,42 @@
+_ > nanoagent.plugin.v0001.ManifestConfig:
+id: model-swap-audit
+name: Model Swap Audit
+version: 0.1.0
+status: ready
+spec: nanoagent.plugin/v0001
+
+runtime > nanoagent.plugin.v0001.RuntimeConfig:
+  type: mcp_stdio
+  command: [uv, run, --frozen, python, -m, plugin]
+
+permissions > nanoagent.plugin.v0001.PermissionsConfig:
+  network > nanoagent.plugin.v0001.NetworkConfig:
+    hosts: []
+  filesystem > nanoagent.plugin.v0001.FilesystemConfig:
+    write: [workspace]
+
+# One entry per contract.Tool; its input and output classes are contract.TOOLS's.
+tools > dict[contract.Tool, nanoagent.plugin.v0001.ToolConfig]:
+  read_probes:
+    description: Read a case's known models, its probe prompts, and each known model's reference output for each probe at temperature 0
+  read_log:
+    description: Read a case's API call log, each call's claimed model, prompt, temperature and output
+  compare_output:
+    description: Tell, for each known model named, whether a call's output equals that model's reference for the call's prompt exactly, character for character
+  audit_record:
+    description: Read a whole case with the data generator's label for every call, the ground truth the verifier checks against
+
+# One entry per contract.Task; its input and output classes are contract.TASKS's.
+tasks > dict[contract.Task, nanoagent.plugin.v0001.TaskConfig]:
+  audit-calls:
+    description: Audit an API's call log for model swaps against known models' reference outputs
+    runner: agent
+    tools: [read_probes, read_log, compare_output]
+    reference: audit_record
+    instructions: |-
+      Audit every call in the case's API log: is the call's output one of the known models' reference outputs, and is that the model the call claims? Read the known models, the probe prompts and their reference outputs with read_probes, and the calls with read_log.
+      For each call, in the log's order:
+      1. If its temperature is not 0, or its prompt_id is not one of the probes, its verdict is unverifiable and matched_models is empty. A reference output only holds at temperature 0 on a probe, so do not compare such a call, even when its output looks like a reference.
+      2. Otherwise call compare_output with the call_id and every known model. matched_models is every model it reports equal, sorted by name. Equal means character for character: an output that differs in one word, a punctuation mark or a trailing space matches no model.
+      3. The verdict is genuine when the claimed model is in matched_models; swapped when matched_models is not empty but does not hold the claimed model, also when the claimed model is not a known model; unknown when matched_models is empty. An unknown call names no model, however close its output is to one.
+      Submit one audit per call, in the log's order: its call_id, its verdict and its matched_models.
